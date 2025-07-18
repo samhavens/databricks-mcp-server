@@ -6,15 +6,15 @@ A **fixed** version of the Databricks MCP Server that properly works with Claude
 
 The original Databricks MCP server had a critical asyncio event loop conflict that prevented it from working with Claude Code. This fork fixes that issue.
 
-### The Problem
-- Original server used `asyncio.run()` inside MCP tool functions
-- This caused `asyncio.run() cannot be called from a running event loop` errors
-- MCP clients like Claude Code already run in an async context
+### The Problems
+1. **Asyncio event loop conflict**: Original server used `asyncio.run()` inside MCP tool functions, causing `asyncio.run() cannot be called from a running event loop` errors when used with Claude Code (which already runs in an async context)
 
-### The Solution
-- Created `simple_databricks_mcp_server.py` that follows the working iPython MCP pattern
-- Changed all tools to use `async def` with `await` instead of `asyncio.run()`
-- Simplified the server architecture to match proven working patterns
+2. **Command spawning issues**: Claude Code's MCP client can only spawn single executables, not commands with arguments like `databricks-mcp start`
+
+### The Solutions
+1. **Fixed async patterns**: Created `simple_databricks_mcp_server.py` that follows the working iPython MCP pattern - changed all tools to use `async def` with `await` instead of `asyncio.run()`
+
+2. **Wrapper script approach**: Created a single executable wrapper script that runs the server directly, avoiding the need for command arguments
 
 ## 🚀 Quick Start for Claude Code Users
 
@@ -31,15 +31,31 @@ cp .env.example .env
 # Edit .env with your Databricks host and token
 ```
 
-3. **Add to Claude Code**:
+3. **Create wrapper script** (required for Claude Code):
 ```bash
-claude mcp add databricks "databricks-mcp start"
+# Create a wrapper script (Claude needs single executable, not command with args)
+cat > ~/.local/bin/databricks-mcp-wrapper << 'EOF'
+#!/bin/bash
+cd /path/to/your/databricks-mcp-server-working
+exec python -m src.server.simple_databricks_mcp_server
+EOF
+
+chmod +x ~/.local/bin/databricks-mcp-wrapper
 ```
 
-4. **Test it works**:
+4. **Add to Claude Code**:
+```bash
+claude mcp add databricks "databricks-mcp-wrapper"
+```
+
+5. **Test it works**:
 ```
 > list all databricks clusters
 ```
+
+### Why the wrapper script?
+
+Claude Code's MCP client can only spawn single executables, not commands with arguments. So instead of `databricks-mcp start`, we need a single `databricks-mcp-wrapper` script that runs the server directly.
 
 ---
 
@@ -291,6 +307,7 @@ Based on: https://github.com/JustTryAI/databricks-mcp-server
 ## 🐛 Issues Fixed
 
 - ✅ `asyncio.run() cannot be called from a running event loop`
+- ✅ `spawn databricks-mcp start ENOENT` (command with arguments not supported)
 - ✅ MCP server connection failures with Claude Code
 - ✅ Proper async/await patterns for MCP tools
 
