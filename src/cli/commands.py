@@ -25,8 +25,8 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Databricks MCP Server CLI")
     
-    # Create subparsers for different commands
-    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+    # Create subparsers for different commands (optional - defaults to starting server)
+    subparsers = parser.add_subparsers(dest="command", help="Command to run (default: start server)")
     
     # Start server command
     start_parser = subparsers.add_parser("start", help="Start the MCP server")
@@ -76,9 +76,9 @@ def main(args: Optional[List[str]] = None) -> int:
     elif parsed_args.command == "version":
         show_version()
     else:
-        # If no command is provided, show help
-        parse_args(["--help"])
-        return 1
+        # If no command is provided, start the server (for Claude Code compatibility)
+        logger.info("No command provided, starting Databricks MCP server")
+        server_main()
     
     return 0
 
