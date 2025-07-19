@@ -60,7 +60,7 @@ def main(args: Optional[List[str]] = None) -> int:
         logger.info("Starting Databricks MCP server")
         server_main()
     elif parsed_args.command == "list-tools":
-        print("\nAvailable tools: list_clusters, create_cluster, terminate_cluster, get_cluster, start_cluster, list_jobs, run_job, list_notebooks, export_notebook, list_files, execute_sql, execute_sql_nonblocking, get_sql_status")
+        print("\nAvailable tools: list_clusters, create_cluster, terminate_cluster, get_cluster, start_cluster, list_jobs, run_job, list_notebooks, export_notebook, list_files, execute_sql, execute_sql_nonblocking, get_sql_status, create_notebook, create_job")
     elif parsed_args.command == "version":
         show_version()
     else:

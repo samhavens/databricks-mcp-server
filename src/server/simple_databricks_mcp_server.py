@@ -212,6 +212,59 @@ async def get_sql_status(statement_id: str) -> str:
         logger.error(f"Error getting SQL status: {str(e)}")
         return json.dumps({"error": str(e)})
 
+@mcp.tool()
+async def create_notebook(
+    path: str,
+    content: str,
+    language: str = "PYTHON",
+    overwrite: bool = False
+) -> str:
+    """Create a new notebook in the Databricks workspace"""
+    logger.info(f"Creating notebook at path: {path}")
+    try:
+        result = await notebooks.import_notebook(
+            path=path,
+            content=content,
+            format="SOURCE",
+            language=language.upper(),
+            overwrite=overwrite
+        )
+        return json.dumps(result)
+    except Exception as e:
+        logger.error(f"Error creating notebook: {str(e)}")
+        return json.dumps({"error": str(e)})
+
+@mcp.tool()
+async def create_job(
+    job_name: str,
+    notebook_path: str,
+    cluster_id: str,
+    timeout_seconds: int = 3600,
+    parameters: Optional[dict] = None
+) -> str:
+    """Create a new Databricks job to run a notebook"""
+    logger.info(f"Creating job: {job_name}")
+    try:
+        job_config = {
+            "name": job_name,
+            "tasks": [{
+                "task_key": "main_task",
+                "notebook_task": {
+                    "notebook_path": notebook_path,
+                    "base_parameters": parameters or {}
+                },
+                "existing_cluster_id": cluster_id,
+                "timeout_seconds": timeout_seconds
+            }],
+            "format": "MULTI_TASK"
+        }
+        
+        result = await jobs.create_job(job_config)
+        return json.dumps(result)
+    except Exception as e:
+        logger.error(f"Error creating job: {str(e)}")
+        return json.dumps({"error": str(e)})
+
 def main():
     """Main entry point for the MCP server"""
     logger.info("Starting Databricks MCP server")
