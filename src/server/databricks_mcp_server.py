@@ -230,7 +230,7 @@ class DatabricksMCPServer(FastMCP):
             """Execute a SQL statement in the specified warehouse."""
             logger.info(f"Executing SQL: {statement[:100]}...")
             try:
-                result = await sql.execute_sql(statement, warehouse_id, catalog, schema)
+                result = await sql.execute_and_wait(statement, warehouse_id, catalog, schema)
                 return json.dumps(result)
             except Exception as e:
                 logger.error(f"Error executing SQL: {str(e)}")

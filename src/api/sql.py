@@ -18,7 +18,7 @@ async def execute_statement(
     schema: Optional[str] = None,
     parameters: Optional[Dict[str, Any]] = None,
     row_limit: int = 10000,
-    byte_limit: int = 100000000,  # 100MB
+    byte_limit: int = 26214400,  # 25MB max allowed
 ) -> Dict[str, Any]:
     """
     Execute a SQL statement.
@@ -57,7 +57,13 @@ async def execute_statement(
     if parameters:
         request_data["parameters"] = parameters
         
-    return make_api_request("POST", "/api/2.0/sql/statements/execute", data=request_data)
+    # Try the classic SQL API first (works on most workspaces)
+    try:
+        return make_api_request("POST", "/api/2.0/sql/statements", data=request_data)
+    except Exception as e:
+        # If that fails, try the newer SQL execution API
+        logger.warning(f"Classic SQL API failed: {e}. Trying newer SQL execution API...")
+        return make_api_request("POST", "/api/2.0/sql/statements/execute", data=request_data)
 
 
 async def execute_and_wait(

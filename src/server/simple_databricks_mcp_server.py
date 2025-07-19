@@ -167,7 +167,7 @@ async def execute_sql(
     """Execute a SQL statement"""
     logger.info(f"Executing SQL statement")
     try:
-        result = await sql.execute_sql(statement, warehouse_id, catalog, schema)
+        result = await sql.execute_statement(statement, warehouse_id, catalog, schema)
         return json.dumps(result)
     except Exception as e:
         logger.error(f"Error executing SQL: {str(e)}")

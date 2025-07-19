@@ -60,16 +60,14 @@ def make_api_request(
         safe_data = "**REDACTED**" if data else None
         logger.debug(f"API Request: {method} {url} Params: {params} Data: {safe_data}")
         
-        # Convert data to JSON string if provided
-        json_data = json.dumps(data) if data and not files else data
-        
         # Make the request
         response = requests.request(
             method=method,
             url=url,
             headers=headers,
             params=params,
-            data=json_data if not files else data,
+            json=data if data and not files else None,
+            data=data if files else None,
             files=files,
         )
         
