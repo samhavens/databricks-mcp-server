@@ -238,24 +238,41 @@ async def create_notebook(
 async def create_job(
     job_name: str,
     notebook_path: str,
-    cluster_id: str,
     timeout_seconds: int = 3600,
-    parameters: Optional[dict] = None
+    parameters: Optional[dict] = None,
+    cluster_id: Optional[str] = None,
+    use_serverless: bool = True
 ) -> str:
-    """Create a new Databricks job to run a notebook"""
+    """Create a new Databricks job to run a notebook (uses serverless by default)"""
     logger.info(f"Creating job: {job_name}")
     try:
+        task_config = {
+            "task_key": "main_task",
+            "notebook_task": {
+                "notebook_path": notebook_path,
+                "base_parameters": parameters or {}
+            },
+            "timeout_seconds": timeout_seconds
+        }
+        
+        # Configure compute: serverless vs cluster
+        if use_serverless:
+            task_config["compute"] = [
+                {
+                    "compute_key": "serverless",
+                    "spec": {
+                        "kind": "shared_compute"
+                    }
+                }
+            ]
+        elif cluster_id:
+            task_config["existing_cluster_id"] = cluster_id
+        else:
+            raise ValueError("Must specify either use_serverless=True or provide cluster_id")
+            
         job_config = {
             "name": job_name,
-            "tasks": [{
-                "task_key": "main_task",
-                "notebook_task": {
-                    "notebook_path": notebook_path,
-                    "base_parameters": parameters or {}
-                },
-                "existing_cluster_id": cluster_id,
-                "timeout_seconds": timeout_seconds
-            }],
+            "tasks": [task_config],
             "format": "MULTI_TASK"
         }
         
