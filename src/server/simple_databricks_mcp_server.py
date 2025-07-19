@@ -255,16 +255,11 @@ async def create_job(
             "timeout_seconds": timeout_seconds
         }
         
-        # Configure compute: serverless vs cluster
+        # Configure compute: serverless vs cluster  
         if use_serverless:
-            task_config["compute"] = [
-                {
-                    "compute_key": "serverless",
-                    "spec": {
-                        "kind": "shared_compute"
-                    }
-                }
-            ]
+            # For serverless compute, simply don't specify any cluster configuration
+            # Databricks will automatically use serverless compute
+            pass
         elif cluster_id:
             task_config["existing_cluster_id"] = cluster_id
         else:
