@@ -164,40 +164,52 @@ async def execute_sql(
     catalog: Optional[str] = None,
     schema: Optional[str] = None
 ) -> str:
-    """Execute a SQL statement with smart timeout handling"""
-    logger.info(f"Executing SQL statement: {statement[:100]}...")
+    """Execute a SQL statement and wait for completion (blocking)"""
+    logger.info(f"Executing SQL statement (blocking): {statement[:100]}...")
     try:
-        # Check if this looks like a quick query (metadata operations, simple selects)
-        quick_query_keywords = ['SHOW', 'DESCRIBE', 'EXPLAIN', 'CREATE', 'DROP']
-        is_quick = any(statement.strip().upper().startswith(keyword) for keyword in quick_query_keywords)
-        
-        # For simple SELECT with LIMIT, also treat as quick
-        if statement.strip().upper().startswith('SELECT') and 'LIMIT' in statement.upper():
-            is_quick = True
-            
-        if is_quick:
-            # Use execute_and_wait with short timeout for quick queries
-            logger.info("Quick query detected - using execute_and_wait with 30s timeout")
-            result = await sql.execute_and_wait(
-                statement=statement,
-                warehouse_id=warehouse_id, 
-                catalog=catalog,
-                schema=schema,
-                timeout_seconds=30
-            )
-        else:
-            # For complex queries, just start execution and return statement_id
-            logger.info("Complex query detected - starting async execution")
-            result = await sql.execute_statement(statement, warehouse_id, catalog, schema)
-            
-            # If it completed quickly, great! If not, user gets the statement_id to check later
-            status = result.get("status", {}).get("state", "")
-            if status == "PENDING":
-                result["note"] = "Query is running in background. Use the statement_id to check status."
-                
+        result = await sql.execute_and_wait(
+            statement=statement,
+            warehouse_id=warehouse_id, 
+            catalog=catalog,
+            schema=schema,
+            timeout_seconds=300  # 5 minutes max
+        )
         return json.dumps(result)
     except Exception as e:
         logger.error(f"Error executing SQL: {str(e)}")
+        return json.dumps({"error": str(e)})
+
+@mcp.tool()
+async def execute_sql_nonblocking(
+    statement: str,
+    warehouse_id: str,
+    catalog: Optional[str] = None,
+    schema: Optional[str] = None
+) -> str:
+    """Start SQL statement execution and return immediately with statement_id (non-blocking)"""
+    logger.info(f"Executing SQL statement (non-blocking): {statement[:100]}...")
+    try:
+        result = await sql.execute_statement(statement, warehouse_id, catalog, schema)
+        
+        # Add helpful info about checking status
+        status = result.get("status", {}).get("state", "")
+        if status == "PENDING":
+            result["note"] = "Query started. Use get_sql_status with the statement_id to check progress."
+            
+        return json.dumps(result)
+    except Exception as e:
+        logger.error(f"Error executing SQL: {str(e)}")
+        return json.dumps({"error": str(e)})
+
+@mcp.tool()
+async def get_sql_status(statement_id: str) -> str:
+    """Get the status and results of a SQL statement by statement_id"""
+    logger.info(f"Getting status for SQL statement: {statement_id}")
+    try:
+        result = await sql.get_statement_status(statement_id)
+        return json.dumps(result)
+    except Exception as e:
+        logger.error(f"Error getting SQL status: {str(e)}")
         return json.dumps({"error": str(e)})
 
 def main():
