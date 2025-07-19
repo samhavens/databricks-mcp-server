@@ -26,6 +26,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
+    "pytest-asyncio>=0.25.3",
 ]
 
 [project.optional-dependencies]
@@ -43,4 +44,8 @@ dev = [
 databricks-mcp = "src.cli.commands:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"] 
+packages = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

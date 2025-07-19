@@ -7,18 +7,18 @@ import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import status
-from fastapi.testclient import TestClient
+# from fastapi import status
+# from fastapi.testclient import TestClient
 
 from src.api import clusters
-from src.server.app import create_app
+# from src.server.app import create_app  # Not needed for testing API functions directly
 
 
-@pytest.fixture
-def client():
-    """Create a test client for the API."""
-    app = create_app()
-    return TestClient(app)
+# @pytest.fixture
+# def client():
+#     """Create a test client for the API."""
+#     app = create_app()
+#     return TestClient(app)
 
 
 @pytest.fixture

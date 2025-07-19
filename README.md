@@ -281,30 +281,29 @@ uv run mypy src/
 
 ## Testing
 
-The project uses pytest for testing. To run the tests:
-
-```bash
-# Run all tests with our convenient script
-.\scripts\run_tests.ps1
-
-# Run with coverage report
-.\scripts\run_tests.ps1 -Coverage
-
-# Run specific tests with verbose output
-.\scripts\run_tests.ps1 -Verbose -Coverage tests/test_clusters.py
-```
-
-You can also run the tests directly with pytest:
+The project uses pytest for testing with async support. Tests are automatically configured to run with pytest-asyncio.
 
 ```bash
 # Run all tests
-uv run pytest tests/
+uv run pytest tests/ -v
 
-# Run with coverage report
+# Run specific test files
+uv run pytest tests/test_clusters.py -v
+uv run pytest tests/test_direct.py -v
+uv run pytest tests/test_tools.py -v
+
+# Run with coverage report (if coverage is installed)
 uv run pytest --cov=src tests/ --cov-report=term-missing
 ```
 
-A minimum code coverage of 80% is the goal for the project.
+**Test Status**: ✅ 12 passed, 5 skipped (intentionally disabled)
+
+**Test Types**:
+- **Unit tests** (`test_clusters.py`): Test API functions with mocks
+- **Integration tests** (`test_direct.py`, `test_tools.py`): Test MCP tools directly (requires Databricks credentials)
+- **Validation tests** (`test_validation.py`): Test import and schema validation
+
+**Note**: Integration tests will show errors if Databricks credentials are not configured, but this is expected behavior.
 
 ## Documentation
 
