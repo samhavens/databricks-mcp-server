@@ -86,7 +86,7 @@ The Databricks MCP Server exposes the following tools:
 ### Job Management
 - **list_jobs**: List all Databricks jobs
 - **run_job**: Run a Databricks job
-- **create_job**: Create a new job to run a notebook
+- **create_job**: Create a new job to run a notebook (supports serverless compute by default)
 
 ### Notebook Management
 - **list_notebooks**: List notebooks in a workspace directory
@@ -100,6 +100,42 @@ The Databricks MCP Server exposes the following tools:
 - **execute_sql**: Execute a SQL statement and wait for completion (blocking)
 - **execute_sql_nonblocking**: Start SQL execution and return immediately with statement_id
 - **get_sql_status**: Get status and results of a SQL statement by statement_id
+
+## Key Features
+
+### Serverless Compute Support
+The `create_job` tool supports **serverless compute by default**, eliminating the need for cluster management:
+
+```python
+# Serverless execution (default - no cluster needed)
+mcp__databricks__create_job(
+    job_name="My Data Pipeline",
+    notebook_path="/Users/your.email@company.com/MyNotebook",
+    timeout_seconds=3600,
+    parameters={"param1": "value1"}
+)
+
+# Or explicitly specify serverless
+mcp__databricks__create_job(
+    job_name="My Pipeline",
+    notebook_path="/path/to/notebook",
+    use_serverless=True  # Default
+)
+
+# Still supports cluster-based execution
+mcp__databricks__create_job(
+    job_name="My Pipeline",
+    notebook_path="/path/to/notebook", 
+    use_serverless=False,
+    cluster_id="your-cluster-id"
+)
+```
+
+**Benefits of serverless:**
+- No cluster creation permissions required
+- Auto-scaling compute resources
+- Cost-efficient - pay only for execution time
+- Faster job startup
 
 ## Installation
 
