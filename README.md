@@ -4,24 +4,38 @@ A **fixed** version of the Databricks MCP Server that properly works with Claude
 
 ## 🔧 What Was Fixed
 
-The original Databricks MCP server had a critical asyncio event loop conflict that prevented it from working with Claude Code. This fork fixes that issue.
+This is a **working fork** of the original Databricks MCP server that fixes critical issues preventing it from working with Claude Code and other MCP clients.
+
+**Original Repository**: https://github.com/JustTryAI/databricks-mcp-server
 
 ### The Problems
 1. **Asyncio event loop conflict**: Original server used `asyncio.run()` inside MCP tool functions, causing `asyncio.run() cannot be called from a running event loop` errors when used with Claude Code (which already runs in an async context)
 
 2. **Command spawning issues**: Claude Code's MCP client can only spawn single executables, not commands with arguments like `databricks-mcp start`
 
+3. **SQL API issues**: Byte limit too high (100MB vs 25MB max), no API endpoint fallback for different Databricks workspace configurations
+
 ### The Solutions
 1. **Fixed async patterns**: Created `simple_databricks_mcp_server.py` that follows the working iPython MCP pattern - changed all tools to use `async def` with `await` instead of `asyncio.run()`
 
 2. **Simplified CLI**: Modified the CLI to default to starting the server when no command is provided, eliminating the need for wrapper scripts
 
+3. **SQL API improvements**: 
+   - Reduced byte_limit from 100MB to 25MB (Databricks maximum allowed)
+   - Added API endpoint fallback: tries `/statements` first, then `/statements/execute`
+   - Better error logging when SQL APIs fail
+
 ## 🚀 Quick Start for Claude Code Users
 
-1. **Clone and install**:
+1. **Install directly from GitHub**:
 ```bash
-git clone https://github.com/sam-havens/databricks-mcp-server-working.git
-cd databricks-mcp-server-working
+uv tool install git+https://github.com/samhavens/databricks-mcp-server.git
+```
+
+Or **clone and install locally**:
+```bash
+git clone https://github.com/samhavens/databricks-mcp-server.git
+cd databricks-mcp-server
 uv tool install --editable .
 ```
 
@@ -97,7 +111,7 @@ The Databricks MCP Server exposes the following tools:
 
 2. Clone the repository:
    ```bash
-   git clone https://github.com/JustTryAI/databricks-mcp-server.git
+   git clone https://github.com/samhavens/databricks-mcp-server.git
    cd databricks-mcp-server
    ```
 
@@ -298,6 +312,9 @@ Based on: https://github.com/JustTryAI/databricks-mcp-server
 - ✅ `spawn databricks-mcp start ENOENT` (command with arguments not supported)
 - ✅ MCP server connection failures with Claude Code
 - ✅ Proper async/await patterns for MCP tools
+- ✅ SQL execution byte limit issues (100MB → 25MB)
+- ✅ SQL API endpoint compatibility across different Databricks workspaces
+- ✅ Better error handling and logging for SQL operations
 
 ## License
 
