@@ -167,8 +167,8 @@ async def execute_sql(
     """Execute a SQL statement with smart timeout handling"""
     logger.info(f"Executing SQL statement: {statement[:100]}...")
     try:
-        # Check if this looks like a quick query (simple SELECT, SHOW, DESCRIBE)
-        quick_query_keywords = ['SHOW', 'DESCRIBE', 'EXPLAIN']
+        # Check if this looks like a quick query (metadata operations, simple selects)
+        quick_query_keywords = ['SHOW', 'DESCRIBE', 'EXPLAIN', 'CREATE', 'DROP']
         is_quick = any(statement.strip().upper().startswith(keyword) for keyword in quick_query_keywords)
         
         # For simple SELECT with LIMIT, also treat as quick
