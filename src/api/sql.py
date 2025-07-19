@@ -43,7 +43,7 @@ async def execute_statement(
     request_data = {
         "statement": statement,
         "warehouse_id": warehouse_id,
-        "wait_timeout": "0s",  # Wait indefinitely
+        "wait_timeout": "0s",  # Return immediately, don't wait
         "row_limit": row_limit,
         "byte_limit": byte_limit,
     }

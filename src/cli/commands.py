@@ -11,7 +11,6 @@ import sys
 from typing import List, Optional
 
 from src.server.simple_databricks_mcp_server import main as server_main
-from src.server.databricks_mcp_server import DatabricksMCPServer
 
 # Configure logging
 logging.basicConfig(
@@ -43,20 +42,9 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-async def list_tools() -> None:
-    """List all available tools in the server."""
-    server = DatabricksMCPServer()
-    tools = await server.list_tools()
-    
-    print("\nAvailable tools:")
-    for tool in tools:
-        print(f"  - {tool.name}: {tool.description}")
-
-
 def show_version() -> None:
     """Show the server version."""
-    server = DatabricksMCPServer()
-    print(f"\nDatabricks MCP Server v{server.version}")
+    print(f"\nDatabricks MCP Server v0.1.0")
 
 
 def main(args: Optional[List[str]] = None) -> int:
@@ -72,7 +60,7 @@ def main(args: Optional[List[str]] = None) -> int:
         logger.info("Starting Databricks MCP server")
         server_main()
     elif parsed_args.command == "list-tools":
-        asyncio.run(list_tools())
+        print("\nAvailable tools: list_clusters, create_cluster, terminate_cluster, get_cluster, start_cluster, list_jobs, run_job, list_notebooks, export_notebook, list_files, execute_sql")
     elif parsed_args.command == "version":
         show_version()
     else:
