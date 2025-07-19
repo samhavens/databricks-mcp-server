@@ -162,7 +162,7 @@ async def execute_sql(
     statement: str,
     warehouse_id: str,
     catalog: Optional[str] = None,
-    schema: Optional[str] = None
+    schema_name: Optional[str] = None
 ) -> str:
     """Execute a SQL statement and wait for completion (blocking)"""
     logger.info(f"Executing SQL statement (blocking): {statement[:100]}...")
@@ -171,7 +171,7 @@ async def execute_sql(
             statement=statement,
             warehouse_id=warehouse_id, 
             catalog=catalog,
-            schema=schema,
+            schema=schema_name,
             timeout_seconds=300  # 5 minutes max
         )
         return json.dumps(result)
@@ -184,12 +184,12 @@ async def execute_sql_nonblocking(
     statement: str,
     warehouse_id: str,
     catalog: Optional[str] = None,
-    schema: Optional[str] = None
+    schema_name: Optional[str] = None
 ) -> str:
     """Start SQL statement execution and return immediately with statement_id (non-blocking)"""
     logger.info(f"Executing SQL statement (non-blocking): {statement[:100]}...")
     try:
-        result = await sql.execute_statement(statement, warehouse_id, catalog, schema)
+        result = await sql.execute_statement(statement, warehouse_id, catalog, schema_name)
         
         # Add helpful info about checking status
         status = result.get("status", {}).get("state", "")
