@@ -5,6 +5,18 @@ Configuration settings for the Databricks MCP server.
 import os
 from typing import Any, Dict, Optional
 
+# Try to use Databricks SDK native configuration first
+try:
+    from databricks.sdk.core import Config as DatabricksConfig
+    databricks_config = DatabricksConfig()
+    DATABRICKS_HOST_DEFAULT = databricks_config.host or "https://example.databricks.net"
+    DATABRICKS_TOKEN_DEFAULT = "from_databricks_cli"
+    print(f"Using Databricks CLI configuration: {DATABRICKS_HOST_DEFAULT}")
+except Exception as e:
+    print(f"Could not load Databricks CLI config: {e}")
+    DATABRICKS_HOST_DEFAULT = "https://example.databricks.net"
+    DATABRICKS_TOKEN_DEFAULT = "dapi_token_placeholder"
+
 # Import dotenv if available, but don't require it
 try:
     from dotenv import load_dotenv
@@ -13,7 +25,6 @@ try:
     print("Successfully loaded dotenv")
 except ImportError:
     print("WARNING: python-dotenv not found, environment variables must be set manually")
-    # We'll just rely on OS environment variables being set manually
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
@@ -26,8 +37,8 @@ class Settings(BaseSettings):
     """Base settings for the application."""
 
     # Databricks API configuration
-    DATABRICKS_HOST: str = os.environ.get("DATABRICKS_HOST", "https://example.databricks.net")
-    DATABRICKS_TOKEN: str = os.environ.get("DATABRICKS_TOKEN", "dapi_token_placeholder")
+    DATABRICKS_HOST: str = os.environ.get("DATABRICKS_HOST", DATABRICKS_HOST_DEFAULT)
+    DATABRICKS_TOKEN: str = os.environ.get("DATABRICKS_TOKEN", DATABRICKS_TOKEN_DEFAULT)
 
     # Server configuration
     SERVER_HOST: str = os.environ.get("SERVER_HOST", "0.0.0.0") 
@@ -61,8 +72,19 @@ settings = Settings()
 
 def get_api_headers() -> Dict[str, str]:
     """Get headers for Databricks API requests."""
+    # Try to use Databricks SDK authentication first
+    try:
+        from databricks.sdk.core import Config as DatabricksConfig
+        config = DatabricksConfig()
+        if config.token:
+            token = config.token
+        else:
+            token = settings.DATABRICKS_TOKEN
+    except Exception:
+        token = settings.DATABRICKS_TOKEN
+    
     return {
-        "Authorization": f"Bearer {settings.DATABRICKS_TOKEN}",
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
 

@@ -1,4 +1,0 @@
-This is a test file for MCP upload functionality.
-Testing file upload to both DBFS and Unity Catalog volumes.
-File size: small (under 1KB)
-Created for testing purposes only.
