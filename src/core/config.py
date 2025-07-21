@@ -8,9 +8,25 @@ from typing import Any, Dict, Optional
 # Import dotenv first to ensure env vars/.env take priority
 try:
     from dotenv import load_dotenv
-    # Load .env file if it exists
-    load_dotenv()
-    print("Successfully loaded dotenv")
+    import os
+    # Try multiple .env file locations
+    env_files = [
+        ".env",  # Current directory
+        os.path.expanduser("~/.databricks-mcp.env"),  # Home directory
+        os.path.expanduser("~/.env"),  # Home directory fallback
+    ]
+    
+    loaded_any = False
+    for env_file in env_files:
+        if os.path.exists(env_file):
+            load_dotenv(env_file)
+            print(f"Successfully loaded dotenv from: {env_file}")
+            loaded_any = True
+            break
+    
+    if not loaded_any:
+        print("No .env file found in expected locations")
+        
 except ImportError:
     print("WARNING: python-dotenv not found, environment variables must be set manually")
 
