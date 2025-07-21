@@ -195,85 +195,65 @@ mcp__databricks__create_job(
 
    You can also create an `.env` file based on the `.env.example` template.
 
-## Running the MCP Server
+## Usage with Claude Code
 
-To start the MCP server, run:
+The MCP server is automatically started by Claude Code when needed. No manual server startup is required.
 
-```bash
-# Windows
-.\start_mcp_server.ps1
+After installation and configuration:
 
-# Linux/Mac
-./start_mcp_server.sh
-```
+1. **Start using Databricks tools in Claude Code**:
+   ```
+   > list all databricks clusters
+   > create a job to run my notebook
+   > execute SQL: SHOW CATALOGS
+   ```
 
-These wrapper scripts will execute the actual server scripts located in the `scripts` directory. The server will start and be ready to accept MCP protocol connections.
-
-You can also directly run the server scripts from the scripts directory:
-
-```bash
-# Windows
-.\scripts\start_mcp_server.ps1
-
-# Linux/Mac
-./scripts/start_mcp_server.sh
-```
+2. **Check available tools**:
+   ```bash
+   databricks-mcp list-tools
+   ```
 
 ## Querying Databricks Resources
 
-The repository includes utility scripts to quickly view Databricks resources:
-
-```bash
-# View all clusters
-uv run scripts/show_clusters.py
-
-# View all notebooks
-uv run scripts/show_notebooks.py
-```
+You can test the MCP server tools directly or use them through Claude Code once installed.
 
 ## Project Structure
 
 ```
 databricks-mcp-server/
-├── src/                             # Source code
-│   ├── __init__.py                  # Makes src a package
-│   ├── __main__.py                  # Main entry point for the package
-│   ├── main.py                      # Entry point for the MCP server
-│   ├── api/                         # Databricks API clients
-│   ├── core/                        # Core functionality
-│   ├── server/                      # Server implementation
-│   │   ├── databricks_mcp_server.py # Main MCP server
-│   │   └── app.py                   # FastAPI app for tests
-│   └── cli/                         # Command-line interface
-├── tests/                           # Test directory
-├── scripts/                         # Helper scripts
-│   ├── start_mcp_server.ps1         # Server startup script (Windows)
-│   ├── run_tests.ps1                # Test runner script
-│   ├── show_clusters.py             # Script to show clusters
-│   └── show_notebooks.py            # Script to show notebooks
-├── examples/                        # Example usage
-├── docs/                            # Documentation
-└── pyproject.toml                   # Project configuration
+├── src/                                      # Source code
+│   ├── __init__.py                           # Makes src a package
+│   ├── __main__.py                           # Main entry point for the package
+│   ├── api/                                  # Databricks API clients
+│   │   ├── clusters.py                       # Cluster management APIs
+│   │   ├── dbfs.py                          # DBFS file system APIs
+│   │   ├── jobs.py                          # Job management APIs
+│   │   ├── notebooks.py                     # Notebook workspace APIs
+│   │   └── sql.py                           # SQL execution APIs
+│   ├── core/                                # Core functionality
+│   │   ├── config.py                        # Configuration management
+│   │   ├── auth.py                          # Authentication
+│   │   └── utils.py                         # Utility functions
+│   ├── server/                              # Server implementation
+│   │   └── simple_databricks_mcp_server.py  # Main MCP server
+│   └── cli/                                 # Command-line interface
+│       └── commands.py                      # CLI commands
+├── tests/                                   # Test directory
+│   ├── test_clusters.py                     # Unit tests for API functions
+│   ├── test_direct.py                       # Integration tests
+│   ├── test_tools.py                        # MCP tool tests
+│   └── test_validation.py                   # Import/schema validation tests
+└── pyproject.toml                           # Project configuration
 ```
-
-See `project_structure.md` for a more detailed view of the project structure.
 
 ## Development
 
-### Code Standards
-
-- Python code follows PEP 8 style guide with a maximum line length of 100 characters
-- Use 4 spaces for indentation (no tabs)
-- Use double quotes for strings
-- All classes, methods, and functions should have Google-style docstrings
-- Type hints are required for all code except tests
-
 ### Linting
 
-The project uses the following linting tools:
+The project includes optional linting tools for code quality:
 
 ```bash
-# Run all linters
+# Run linters (if installed in dev dependencies)
 uv run pylint src/ tests/
 uv run flake8 src/ tests/
 uv run mypy src/

@@ -94,14 +94,147 @@ async def start_cluster(cluster_id: str) -> str:
         return json.dumps({"error": str(e)})
 
 @mcp.tool()
-async def list_jobs() -> str:
-    """List all Databricks jobs"""
-    logger.info("Listing jobs")
+async def list_jobs(
+    limit: int = 25, 
+    offset: int = 0, 
+    created_by: Optional[str] = None,
+    include_run_status: bool = True
+) -> str:
+    """List Databricks jobs with pagination and filtering.
+    
+    Args:
+        limit: Number of jobs to return (default: 25, keeps response under token limits)
+        offset: Starting position for pagination (default: 0, use pagination_info.next_offset for next page)
+        created_by: Filter by creator email (e.g. 'user@company.com'), case-insensitive, optional
+        include_run_status: Include latest run status and duration (default: true, set false for faster response)
+    
+    Returns:
+        JSON with jobs array and pagination_info. Each job includes latest_run with state, duration_minutes, etc.
+        Use pagination_info.next_offset for next page. Total jobs shown in pagination_info.total_jobs.
+    """
+    logger.info(f"Listing jobs (limit={limit}, offset={offset}, created_by={created_by})")
     try:
+        # Fetch all jobs from API
         result = await jobs.list_jobs()
-        return json.dumps(result)
+        
+        if "jobs" in result:
+            all_jobs = result["jobs"]
+            
+            # Filter by creator if specified
+            if created_by:
+                all_jobs = [job for job in all_jobs 
+                           if job.get("creator_user_name", "").lower() == created_by.lower()]
+            
+            total_jobs = len(all_jobs)
+            
+            # Apply client-side pagination
+            start_idx = offset
+            end_idx = offset + limit
+            paginated_jobs = all_jobs[start_idx:end_idx]
+            
+            # Enhance jobs with run status if requested
+            if include_run_status and paginated_jobs:
+                enhanced_jobs = []
+                for job in paginated_jobs:
+                    enhanced_job = job.copy()
+                    
+                    # Get most recent run for this job
+                    try:
+                        runs_result = await jobs.list_runs(job_id=job["job_id"], limit=1)
+                        if "runs" in runs_result and runs_result["runs"]:
+                            latest_run = runs_result["runs"][0]
+                            
+                            # Add run status info
+                            enhanced_job["latest_run"] = {
+                                "run_id": latest_run.get("run_id"),
+                                "state": latest_run.get("state", {}).get("life_cycle_state"),
+                                "result_state": latest_run.get("state", {}).get("result_state"),
+                                "start_time": latest_run.get("start_time"),
+                                "end_time": latest_run.get("end_time"),
+                            }
+                            
+                            # Calculate duration if both times available
+                            start_time = latest_run.get("start_time")
+                            end_time = latest_run.get("end_time")
+                            if start_time and end_time:
+                                duration_ms = end_time - start_time
+                                enhanced_job["latest_run"]["duration_seconds"] = duration_ms // 1000
+                                enhanced_job["latest_run"]["duration_minutes"] = duration_ms // 60000
+                        else:
+                            enhanced_job["latest_run"] = {"status": "no_runs"}
+                            
+                    except Exception as e:
+                        enhanced_job["latest_run"] = {"error": f"Failed to get run info: {str(e)}"}
+                    
+                    enhanced_jobs.append(enhanced_job)
+                
+                paginated_jobs = enhanced_jobs
+            
+            # Create paginated response
+            paginated_result = {
+                "jobs": paginated_jobs,
+                "pagination_info": {
+                    "total_jobs": total_jobs,
+                    "returned": len(paginated_jobs),
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": end_idx < total_jobs,
+                    "next_offset": end_idx if end_idx < total_jobs else None,
+                    "filtered_by": {"created_by": created_by} if created_by else None
+                }
+            }
+            
+            return json.dumps(paginated_result)
+        else:
+            return json.dumps(result)
+            
     except Exception as e:
         logger.error(f"Error listing jobs: {str(e)}")
+        return json.dumps({"error": str(e)})
+
+@mcp.tool()
+async def list_job_runs(job_id: Optional[int] = None, limit: int = 10) -> str:
+    """List recent job runs with detailed status and duration information.
+    
+    Args:
+        job_id: Specific job ID to list runs for (optional, omit to see runs across all jobs)
+        limit: Number of runs to return (default: 10, most recent first)
+    
+    Returns:
+        JSON with runs array. Each run includes state (RUNNING/SUCCESS/FAILED), result_state, 
+        duration_minutes for completed runs, current_duration_minutes for running jobs.
+    """
+    logger.info(f"Listing job runs (job_id={job_id}, limit={limit})")
+    try:
+        result = await jobs.list_runs(job_id=job_id, limit=limit)
+        
+        if "runs" in result:
+            enhanced_runs = []
+            for run in result["runs"]:
+                enhanced_run = run.copy()
+                
+                # Calculate duration if both times available
+                start_time = run.get("start_time")
+                end_time = run.get("end_time")
+                if start_time and end_time:
+                    duration_ms = end_time - start_time
+                    enhanced_run["duration_seconds"] = duration_ms // 1000
+                    enhanced_run["duration_minutes"] = duration_ms // 60000
+                elif start_time and not end_time:
+                    # Running job - calculate current duration
+                    import time
+                    current_time = int(time.time() * 1000)
+                    duration_ms = current_time - start_time
+                    enhanced_run["current_duration_seconds"] = duration_ms // 1000
+                    enhanced_run["current_duration_minutes"] = duration_ms // 60000
+                
+                enhanced_runs.append(enhanced_run)
+            
+            result["runs"] = enhanced_runs
+        
+        return json.dumps(result)
+    except Exception as e:
+        logger.error(f"Error listing job runs: {str(e)}")
         return json.dumps({"error": str(e)})
 
 @mcp.tool()

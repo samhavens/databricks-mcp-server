@@ -51,18 +51,33 @@ async def run_job(job_id: int, notebook_params: Optional[Dict[str, Any]] = None)
     return make_api_request("POST", "/api/2.0/jobs/run-now", data=run_params)
 
 
-async def list_jobs() -> Dict[str, Any]:
+async def list_jobs(limit: Optional[int] = None, page_token: Optional[str] = None) -> Dict[str, Any]:
     """
-    List all jobs.
+    List jobs with optional pagination.
+    
+    Args:
+        limit: Maximum number of jobs to return (1-100, default: 20)
+        page_token: Token for pagination (from previous response's next_page_token)
     
     Returns:
-        Response containing a list of jobs
+        Response containing a list of jobs and optional next_page_token
         
     Raises:
         DatabricksAPIError: If the API request fails
     """
-    logger.info("Listing all jobs")
-    return make_api_request("GET", "/api/2.0/jobs/list")
+    params = {}
+    if limit is not None:
+        # Databricks API limits: 1-100 for jobs list
+        if limit < 1:
+            limit = 1
+        elif limit > 100:
+            limit = 100
+        params["limit"] = limit
+    if page_token is not None:
+        params["page_token"] = page_token
+        
+    logger.info(f"Listing jobs (limit={limit}, page_token={'***' if page_token else None})")
+    return make_api_request("GET", "/api/2.0/jobs/list", params=params if params else None)
 
 
 async def get_job(job_id: int) -> Dict[str, Any]:
@@ -154,4 +169,28 @@ async def cancel_run(run_id: int) -> Dict[str, Any]:
         DatabricksAPIError: If the API request fails
     """
     logger.info(f"Cancelling run: {run_id}")
-    return make_api_request("POST", "/api/2.0/jobs/runs/cancel", data={"run_id": run_id}) 
+    return make_api_request("POST", "/api/2.0/jobs/runs/cancel", data={"run_id": run_id})
+
+
+async def list_runs(job_id: Optional[int] = None, limit: Optional[int] = None) -> Dict[str, Any]:
+    """
+    List job runs, optionally filtered by job_id.
+    
+    Args:
+        job_id: ID of the job to list runs for (optional)
+        limit: Maximum number of runs to return (optional)
+        
+    Returns:
+        Response containing a list of job runs
+        
+    Raises:
+        DatabricksAPIError: If the API request fails
+    """
+    params = {}
+    if job_id is not None:
+        params["job_id"] = job_id
+    if limit is not None:
+        params["limit"] = limit
+        
+    logger.info(f"Listing runs (job_id={job_id}, limit={limit})")
+    return make_api_request("GET", "/api/2.0/jobs/runs/list", params=params if params else None) 
