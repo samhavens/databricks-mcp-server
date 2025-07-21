@@ -13,7 +13,7 @@ import sys
 import os
 from typing import Any, Dict, List, Optional, Union
 
-from src.api import clusters, dbfs, jobs, notebooks, sql
+from src.api import clusters, dbfs, jobs, notebooks, sql, volumes
 from src.core.config import settings
 
 # Configure logging
@@ -408,6 +408,152 @@ async def create_job(
         return json.dumps(result)
     except Exception as e:
         logger.error(f"Error creating job: {str(e)}")
+        return json.dumps({"error": str(e)})
+
+@mcp.tool()
+async def upload_file_to_volume(
+    local_file_path: str,
+    volume_path: str,
+    overwrite: bool = False
+) -> str:
+    """
+    Upload a local file to a Databricks Unity Catalog volume.
+
+    Args:
+        local_file_path: Path to local file (e.g. './data/products.json')
+        volume_path: Full volume path (e.g. '/Volumes/catalog/schema/volume/file.json')
+        overwrite: Whether to overwrite existing file (default: False)
+
+    Returns:
+        JSON with upload results including success status, file size in MB, and upload time.
+        
+    Example:
+        # Upload large dataset to volume
+        result = upload_file_to_volume(
+            local_file_path='./stark_export/products_full.json',
+            volume_path='/Volumes/kbqa/stark_mas_eval/stark_raw_data/products_full.json',
+            overwrite=True
+        )
+        
+    Note: Handles large files (multi-GB) with progress tracking and proper error handling.
+    Perfect for uploading extracted datasets to Unity Catalog volumes for processing.
+    """
+    logger.info(f"Uploading file from {local_file_path} to volume: {volume_path}")
+    try:
+        result = await volumes.upload_file_to_volume(
+            local_file_path=local_file_path,
+            volume_path=volume_path,
+            overwrite=overwrite
+        )
+        return json.dumps(result)
+    except Exception as e:
+        logger.error(f"Error uploading file to volume: {str(e)}")
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "volume_path": volume_path
+        })
+
+@mcp.tool()
+async def upload_file_to_dbfs(
+    local_file_path: str,
+    dbfs_path: str,
+    overwrite: bool = True
+) -> str:
+    """
+    Upload a local file to Databricks File System (DBFS).
+
+    Args:
+        local_file_path: Path to local file (e.g. './data/notebook.py')
+        dbfs_path: DBFS path (e.g. '/tmp/uploaded/notebook.py')
+        overwrite: Whether to overwrite existing file (default: True)
+
+    Returns:
+        JSON with upload results including success status, file size, and upload time.
+        
+    Example:
+        # Upload script to DBFS
+        result = upload_file_to_dbfs(
+            local_file_path='./scripts/analysis.py',
+            dbfs_path='/tmp/analysis.py',
+            overwrite=True
+        )
+        
+    Note: For large files (>10MB), uses chunked upload with proper retry logic.
+    DBFS is good for temporary files, scripts, and smaller datasets.
+    """
+    logger.info(f"Uploading file from {local_file_path} to DBFS: {dbfs_path}")
+    try:
+        import os
+        import time
+        
+        if not os.path.exists(local_file_path):
+            raise FileNotFoundError(f"Local file not found: {local_file_path}")
+        
+        # Get file info
+        start_time = time.time()
+        file_size = os.path.getsize(local_file_path)
+        file_size_mb = file_size / (1024 * 1024)
+        
+        # Choose upload method based on file size
+        if file_size > 10 * 1024 * 1024:  # > 10MB
+            result = await dbfs.upload_large_file(
+                dbfs_path=dbfs_path,
+                local_file_path=local_file_path,
+                overwrite=overwrite
+            )
+        else:
+            # Read and upload small file
+            with open(local_file_path, 'rb') as f:
+                file_content = f.read()
+            result = await dbfs.put_file(
+                dbfs_path=dbfs_path,
+                file_content=file_content,
+                overwrite=overwrite
+            )
+        
+        end_time = time.time()
+        upload_time = end_time - start_time
+        
+        return json.dumps({
+            "success": True,
+            "file_size_mb": round(file_size_mb, 1),
+            "upload_time_seconds": round(upload_time, 1),
+            "dbfs_path": dbfs_path,
+            "file_size_bytes": file_size
+        })
+        
+    except Exception as e:
+        logger.error(f"Error uploading file to DBFS: {str(e)}")
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "dbfs_path": dbfs_path
+        })
+
+@mcp.tool()
+async def list_volume_files(volume_path: str) -> str:
+    """
+    List files and directories in a Unity Catalog volume.
+
+    Args:
+        volume_path: Volume path to list (e.g. '/Volumes/catalog/schema/volume/directory')
+
+    Returns:
+        JSON with directory listing including file names, sizes, and modification times.
+        
+    Example:
+        # List files in volume directory
+        files = list_volume_files('/Volumes/kbqa/stark_mas_eval/stark_raw_data/')
+        
+    Note: Returns detailed file information including sizes for managing large datasets.
+    """
+    logger.info(f"Listing volume files in: {volume_path}")
+    try:
+        result = volumes.list_volume_files(volume_path)
+        return json.dumps(result)
+    except Exception as e:
+        logger.error(f"Error listing volume files: {str(e)}")
         return json.dumps({"error": str(e)})
 
 def main():
