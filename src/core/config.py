@@ -5,19 +5,7 @@ Configuration settings for the Databricks MCP server.
 import os
 from typing import Any, Dict, Optional
 
-# Try to use Databricks SDK native configuration first
-try:
-    from databricks.sdk.core import Config as DatabricksConfig
-    databricks_config = DatabricksConfig()
-    DATABRICKS_HOST_DEFAULT = databricks_config.host or "https://example.databricks.net"
-    DATABRICKS_TOKEN_DEFAULT = "from_databricks_cli"
-    print(f"Using Databricks CLI configuration: {DATABRICKS_HOST_DEFAULT}")
-except Exception as e:
-    print(f"Could not load Databricks CLI config: {e}")
-    DATABRICKS_HOST_DEFAULT = "https://example.databricks.net"
-    DATABRICKS_TOKEN_DEFAULT = "dapi_token_placeholder"
-
-# Import dotenv if available, but don't require it
+# Import dotenv first to ensure env vars/.env take priority
 try:
     from dotenv import load_dotenv
     # Load .env file if it exists
@@ -25,6 +13,28 @@ try:
     print("Successfully loaded dotenv")
 except ImportError:
     print("WARNING: python-dotenv not found, environment variables must be set manually")
+
+# Use Databricks SDK configuration as fallback only if env vars not set
+def get_databricks_defaults():
+    host_from_env = os.environ.get("DATABRICKS_HOST")
+    token_from_env = os.environ.get("DATABRICKS_TOKEN") 
+    
+    if host_from_env and token_from_env:
+        print(f"Using environment configuration: {host_from_env}")
+        return host_from_env, token_from_env
+    
+    # Try SDK config as fallback
+    try:
+        from databricks.sdk.core import Config as DatabricksConfig
+        databricks_config = DatabricksConfig()
+        sdk_host = databricks_config.host or "https://example.databricks.net"
+        print(f"Falling back to Databricks CLI configuration: {sdk_host}")
+        return sdk_host, "from_databricks_cli"
+    except Exception as e:
+        print(f"Could not load Databricks CLI config: {e}")
+        return "https://example.databricks.net", "dapi_token_placeholder"
+
+DATABRICKS_HOST_DEFAULT, DATABRICKS_TOKEN_DEFAULT = get_databricks_defaults()
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
@@ -72,16 +82,18 @@ settings = Settings()
 
 def get_api_headers() -> Dict[str, str]:
     """Get headers for Databricks API requests."""
-    # Try to use Databricks SDK authentication first
-    try:
-        from databricks.sdk.core import Config as DatabricksConfig
-        config = DatabricksConfig()
-        if config.token:
-            token = config.token
-        else:
-            token = settings.DATABRICKS_TOKEN
-    except Exception:
-        token = settings.DATABRICKS_TOKEN
+    # Use env var/settings token first (PAT), fall back to SDK token (JWT)
+    token = settings.DATABRICKS_TOKEN
+    
+    # Only use SDK token if we don't have a real token from env/settings
+    if token in ("dapi_token_placeholder", "from_databricks_cli"):
+        try:
+            from databricks.sdk.core import Config as DatabricksConfig
+            config = DatabricksConfig()
+            if config.token:
+                token = config.token
+        except Exception:
+            pass
     
     return {
         "Authorization": f"Bearer {token}",
