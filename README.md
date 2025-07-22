@@ -74,32 +74,54 @@ A Model Completion Protocol (MCP) server for Databricks that provides access to 
 
 ## Available Tools
 
-The Databricks MCP Server exposes the following tools:
+The Databricks MCP Server exposes **20 comprehensive tools** across all major Databricks functionality areas:
 
-### Cluster Management
-- **list_clusters**: List all Databricks clusters
-- **create_cluster**: Create a new Databricks cluster
+### Cluster Management (5 tools)
+- **list_clusters**: List all Databricks clusters with status and configuration details
+- **create_cluster**: Create a new Databricks cluster with specified configuration
 - **terminate_cluster**: Terminate a Databricks cluster
-- **get_cluster**: Get information about a specific Databricks cluster
+- **get_cluster**: Get detailed information about a specific Databricks cluster
 - **start_cluster**: Start a terminated Databricks cluster
 
-### Job Management
-- **list_jobs**: List all Databricks jobs
-- **run_job**: Run a Databricks job
-- **create_job**: Create a new job to run a notebook (supports serverless compute by default)
+### Job Management (4 tools) 
+- **list_jobs**: List Databricks jobs with **advanced pagination, creator filtering, and run status tracking**
+- **list_job_runs**: List recent job runs with detailed execution status, duration, and result information
+- **run_job**: Execute a Databricks job with optional parameters
+- **create_job**: Create a new job to run a notebook (supports **serverless compute by default**)
 
-### Notebook Management
-- **list_notebooks**: List notebooks in a workspace directory
-- **export_notebook**: Export a notebook from the workspace
-- **create_notebook**: Create a new notebook in the workspace
+### Notebook Management (3 tools)
+- **list_notebooks**: List notebooks in a workspace directory with metadata
+- **export_notebook**: Export a notebook from the workspace in various formats (Jupyter, Python, etc.)
+- **create_notebook**: Create a new notebook in the workspace with specified content and language
 
-### File System
-- **list_files**: List files and directories in a DBFS path
+### File System (4 tools)
+- **list_files**: List files and directories in DBFS paths with size and modification details
+- **upload_file_to_volume**: **Upload files to Unity Catalog volumes** with progress tracking and large file support
+- **upload_file_to_dbfs**: **Upload files to DBFS** with chunked upload for large files  
+- **list_volume_files**: **List files and directories in Unity Catalog volumes** with detailed metadata
 
-### SQL Execution
-- **execute_sql**: Execute a SQL statement and wait for completion (blocking)
-- **execute_sql_nonblocking**: Start SQL execution and return immediately with statement_id
-- **get_sql_status**: Get status and results of a SQL statement by statement_id
+### SQL Execution (3 tools)
+- **execute_sql**: Execute SQL statement and wait for completion (blocking) - perfect for quick queries
+- **execute_sql_nonblocking**: **Start SQL execution and return immediately** with statement_id for long-running queries
+- **get_sql_status**: **Monitor and retrieve results** of non-blocking SQL executions by statement_id
+
+### Enhanced Features
+
+#### Advanced Job Management
+- **Pagination support**: `list_jobs` includes pagination with configurable limits and offsets
+- **Creator filtering**: Filter jobs by creator email (case-insensitive)  
+- **Run status integration**: Automatically includes latest run status and execution duration
+- **Duration calculations**: Real-time tracking of job execution times
+
+#### Unity Catalog Integration  
+- **Volume operations**: Full support for Unity Catalog volumes using **Databricks SDK**
+- **Large file handling**: Optimized upload with progress tracking for multi-GB files
+- **Path validation**: Automatic validation of volume paths and permissions
+
+#### Non-blocking SQL Execution
+- **Asynchronous execution**: Start long-running SQL queries without blocking
+- **Status monitoring**: Real-time status tracking with detailed error reporting
+- **Result retrieval**: Fetch results when queries complete successfully
 
 ## Key Features
 
@@ -293,7 +315,73 @@ uv run pytest --cov=src tests/ --cov-report=term-missing
 
 ## Examples
 
-Check the `examples/` directory for usage examples. To run examples:
+### Volume Upload Operations
+
+**Upload a local file to Unity Catalog volume:**
+```python
+# Upload dataset to Unity Catalog volume
+mcp__databricks__upload_file_to_volume(
+    local_file_path='./data/large_dataset.json',
+    volume_path='/Volumes/catalog/schema/volume/large_dataset.json',
+    overwrite=True
+)
+
+# List files in the volume to verify
+mcp__databricks__list_volume_files(
+    volume_path='/Volumes/catalog/schema/volume/'
+)
+```
+
+**Upload to DBFS for temporary processing:**
+```python
+# Upload script to DBFS 
+mcp__databricks__upload_file_to_dbfs(
+    local_file_path='./scripts/analysis.py',
+    dbfs_path='/tmp/analysis.py',
+    overwrite=True  
+)
+```
+
+### Non-blocking SQL Execution
+
+**Start long-running query and monitor progress:**
+```python
+# Start a long-running query (non-blocking)
+statement_result = mcp__databricks__execute_sql_nonblocking(
+    statement="SELECT COUNT(*) FROM large_table GROUP BY category",
+    warehouse_id="your-warehouse-id"
+)
+statement_id = statement_result['statement_id']
+
+# Check status periodically
+status = mcp__databricks__get_sql_status(statement_id=statement_id)
+print(f"Status: {status['state']}")  # PENDING, RUNNING, SUCCEEDED, FAILED
+
+# When complete, retrieve results
+if status['state'] == 'SUCCEEDED':
+    results = status['result']
+```
+
+### Advanced Job Management  
+
+**List jobs with filtering and pagination:**
+```python
+# List jobs created by specific user with pagination
+jobs = mcp__databricks__list_jobs(
+    limit=25,
+    offset=0,
+    created_by='user@company.com',
+    include_run_status=True  # Include latest run info
+)
+
+# Get detailed run history for a specific job
+runs = mcp__databricks__list_job_runs(
+    job_id=12345,
+    limit=10
+)
+```
+
+For more examples, check the `examples/` directory:
 
 ```bash
 # Run example scripts with uv
@@ -328,7 +416,32 @@ async def list_clusters() -> str:
     return json.dumps(result)
 ```
 
-This pattern was applied to all 11 MCP tools in the server.
+This pattern was applied to all 20 MCP tools in the server.
+
+## 🏗️ Implementation Architecture
+
+### SDK vs REST API Approach
+
+The MCP server uses a **hybrid implementation approach** optimized for reliability and performance:
+
+#### Databricks SDK (Preferred)
+**Used for**: Volume operations, authentication, and core workspace interactions
+- **Benefits**: Automatic authentication, better error handling, type safety
+- **Tools using SDK**: `upload_file_to_volume`, `list_volume_files`, authentication layer
+- **Authentication**: Automatically discovers credentials from environment, CLI config, or instance metadata
+
+#### REST API (Legacy)  
+**Used for**: SQL execution, some job operations
+- **Benefits**: Direct control over API calls, established patterns
+- **Tools using REST**: `execute_sql`, `execute_sql_nonblocking`, `get_sql_status`
+- **Authentication**: Uses manual token-based authentication
+
+#### Migration Status
+- ✅ **Volume operations**: Migrated to SDK (fixes 404 errors from REST)
+- 🔄 **In progress**: Additional tools being evaluated for SDK migration
+- 📝 **Future**: Plan to migrate remaining tools for consistency
+
+**Recommendation**: New tools should use the Databricks SDK for better maintainability and error handling.
 
 ## 📝 Original Repository
 
